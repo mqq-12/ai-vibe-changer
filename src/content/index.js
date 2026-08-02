@@ -845,55 +845,56 @@
   function forceElementTransparent(element) {
     if (!(element instanceof HTMLElement)) return;
     const tag = (element.tagName || "").toLowerCase();
-    if (tag === "body" || tag === "html" || element.id === ROOT_ID) return;
-    // Always punch — don't check computed style, because React inline
-    // styles can set a background at any moment and we need to
-    // override it unconditionally.
+    // Never touch our own skin root.
+    if (element.id === ROOT_ID) return;
     element.style.setProperty("background", "transparent", "important");
     element.style.setProperty("background-color", "transparent", "important");
     element.style.setProperty("background-image", "none", "important");
   }
 
   function punchAllOpaqueLayers(root = document) {
-    // Only punch when the background-image component is on AND a
-    // background image has actually been uploaded.
     if (!state.settings?.components?.background) return;
     if (!state.settings?.backgroundDataUrl) return;
 
-    // 1) #root itself
-    const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
-    if (appRoot) forceElementTransparent(appRoot);
+    // 1) html and body themselves
+    if (root.documentElement instanceof HTMLElement) {
+      forceElementTransparent(root.documentElement);
+    }
+    if (root.body instanceof HTMLElement) {
+      forceElementTransparent(root.body);
+    }
 
-    // 2) Every child of #root up to 4 levels deep
-    const scanRoot = appRoot || root.body || root;
-    const candidates = [scanRoot];
-    for (let depth = 0; depth < 4 && candidates.length; depth++) {
-      const next = [];
-      for (const el of candidates) {
-        if (!(el instanceof HTMLElement)) continue;
-        forceElementTransparent(el);
-        for (const child of el.children) {
-          if (child instanceof HTMLElement) next.push(child);
+    // 2) #root and everything inside it, breath-first up to 5 levels
+    const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
+    if (appRoot) {
+      forceElementTransparent(appRoot);
+      const queue = [appRoot];
+      for (let depth = 0; depth < 5 && queue.length; depth++) {
+        const len = queue.length;
+        for (let i = 0; i < len; i++) {
+          const el = queue[i];
+          if (!(el instanceof HTMLElement)) continue;
+          forceElementTransparent(el);
+          for (const child of el.children) {
+            if (child instanceof HTMLElement) queue.push(child);
+          }
         }
+        queue.splice(0, len);
       }
-      candidates.length = 0;
-      candidates.push(...next);
     }
   }
 
-  /* ── background-fix: keep #root transparent against React re-renders ── */
+  /* ── background-fix: keep site containers transparent ── */
   let backgroundFixRaf = null;
   let backgroundFixLastPunch = 0;
 
   function scheduleBackgroundFix() {
-    if (backgroundFixRaf !== null) return; // already scheduled
+    if (backgroundFixRaf !== null) return;
     backgroundFixRaf = requestAnimationFrame(() => {
       backgroundFixRaf = null;
       if (!state.settings?.enabled) return;
       const now = Date.now();
-      // Throttle: punch at most once every 120ms to avoid CPU burn
-      // when React is churning the DOM heavily.
-      if (now - backgroundFixLastPunch < 120) return;
+      if (now - backgroundFixLastPunch < 100) return;
       backgroundFixLastPunch = now;
       punchAllOpaqueLayers(document);
     });
