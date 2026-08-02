@@ -1,0 +1,15 @@
+{
+    "name":  "doubao-web-skin",
+    "version":  "0.1.0",
+    "private":  true,
+    "type":  "module",
+    "description":  "Doubao 网页版运行时主题扩展原型",
+    "scripts":  {
+                    "check":  "node scripts/validate.mjs \u0026\u0026 node --test",
+                    "test":  "node --test",
+                    "build":  "node scripts/build.mjs"
+                },
+    "engines":  {
+                    "node":  "\u003e=18"
+                }
+}

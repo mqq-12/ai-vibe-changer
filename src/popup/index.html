@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doubao Web Skin</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <main class="popup-shell">
+    <header>
+      <div>
+        <div class="eyebrow">DOUBAO WEB SKIN</div>
+        <h1>网页主题</h1>
+      </div>
+      <label class="switch" title="启用或关闭主题">
+        <input id="enabled" type="checkbox">
+        <span></span>
+      </label>
+    </header>
+
+    <section class="card">
+      <label for="preset">当前主题</label>
+      <select id="preset"></select>
+      <button id="applyPreset" class="primary" type="button">应用主题</button>
+      <label class="upload-button">上传背景图片
+        <input id="background" type="file" accept="image/png,image/jpeg,image/webp">
+      </label>
+      <div class="background-row">
+        <span id="backgroundName">尚未上传图片</span>
+        <button id="removeBackground" type="button">清除</button>
+      </div>
+    </section>
+
+    <section class="status-card" aria-live="polite">
+      <div class="status-row">
+        <span>页面状态</span>
+        <strong id="pageStatus">正在检测…</strong>
+      </div>
+      <div class="status-row">
+        <span>兼容评分</span>
+        <strong id="score">—</strong>
+      </div>
+      <p id="statusHint">请先打开 Doubao 官方聊天页面。</p>
+    </section>
+
+    <button id="openOptions" class="secondary" type="button">打开主题工作室</button>
+    <div id="toast" class="popup-toast" role="status" aria-live="polite"></div>
+  </main>
+
+  <script src="../shared/defaults.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>
+
+
+

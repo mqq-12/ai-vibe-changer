@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Doubao Web Skin 主题工作室</title>
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+  <div id="toastRegion" class="toast-region" aria-live="polite" aria-atomic="true"></div>
+
+  <main class="studio">
+    <header class="hero">
+      <div>
+        <div class="eyebrow">DOUBAO WEB SKIN</div>
+        <h1>主题工作室</h1>
+        <p>先选统一色组，再按需要微调各区域颜色。背景图片与设置只保存在当前浏览器本地。</p>
+      </div>
+      <label class="enable-row"><input id="enabled" type="checkbox"> 启用主题</label>
+    </header>
+
+    <div id="notice" class="notice" role="status"></div>
+
+    <section class="grid">
+      <article class="panel">
+        <h2>主题预设</h2>
+        <p class="panel-help">预设会同时载入颜色组和视觉参数，但不会删除你已上传的背景。</p>
+        <label>预设<select id="preset"></select></label>
+        <button id="applyPreset" type="button">载入预设参数</button>
+      </article>
+
+      <article class="panel">
+        <h2>背景图片</h2>
+        <div id="preview" class="preview"><span>尚未选择背景</span></div>
+        <label class="file-button">选择 PNG / JPEG / WebP
+          <input id="background" type="file" accept="image/png,image/jpeg,image/webp">
+        </label>
+        <div class="button-row">
+          <button id="removeBackground" class="muted" type="button">移除背景</button>
+        </div>
+        <small>图片最长边会缩放至 3200px 以内，并压缩为 WebP。选择后还需点击底部“保存并应用”。</small>
+      </article>
+
+      <article class="panel wide">
+        <div class="panel-heading">
+          <div>
+            <h2>统一颜色组</h2>
+            <p class="panel-help">一键统一侧栏、消息、思考区、输入框和弹窗；之后仍可在下方单独修改。</p>
+          </div>
+          <strong id="activeGroupName" class="active-group"></strong>
+        </div>
+        <div id="colorGroups" class="palette-grid"></div>
+      </article>
+
+      <article class="panel wide">
+        <details class="advanced-colors">
+          <summary>
+            <span>高级分区颜色</span>
+            <small>需要时展开，可分别控制每一个区域</small>
+          </summary>
+          <div class="color-sections">
+            <section>
+              <h3>全局与文字</h3>
+              <div class="color-grid">
+                <label>强调色<input id="accent" data-color-key="accent" type="color"></label>
+                <label>主要文字<input id="textPrimary" data-color-key="textPrimary" type="color"></label>
+                <label>次要文字<input id="textSecondary" data-color-key="textSecondary" type="color"></label>
+                <label>代码背景<input id="codeBackground" data-color-key="codeBackground" type="color"></label>
+              </div>
+            </section>
+
+            <section>
+              <h3>面板与侧栏</h3>
+              <div class="color-grid">
+                <label>普通面板<input id="panel" data-color-key="panel" type="color"></label>
+                <label>输入区域<input id="panelStrong" data-color-key="panelStrong" type="color"></label>
+                <label>侧栏悬停<input id="sidebarHover" data-color-key="sidebarHover" type="color"></label>
+                <label>侧栏选中<input id="sidebarSelected" data-color-key="sidebarSelected" type="color"></label>
+                <label>侧栏选中文字<input id="sidebarSelectedText" data-color-key="sidebarSelectedText" type="color"></label>
+              </div>
+            </section>
+
+            <section>
+              <h3>消息与思考</h3>
+              <div class="color-grid">
+                <label>用户问题<input id="userMessage" data-color-key="userMessage" type="color"></label>
+                <label>用户问题边框<input id="userBorder" data-color-key="userBorder" type="color"></label>
+                <label>助手回答<input id="assistantMessage" data-color-key="assistantMessage" type="color"></label>
+                <label>思考区域<input id="thinking" data-color-key="thinking" type="color"></label>
+                <label>思考区域边框<input id="thinkingBorder" data-color-key="thinkingBorder" type="color"></label>
+                <label>思考区域文字<input id="thinkingText" data-color-key="thinkingText" type="color"></label>
+              </div>
+            </section>
+
+            <section>
+              <h3>弹窗</h3>
+              <div class="color-grid">
+                <label>菜单与弹窗<input id="dialog" data-color-key="dialog" type="color"></label>
+              </div>
+            </section>
+          </div>
+        </details>
+      </article>
+
+      <article class="panel wide">
+        <h2>视觉效果</h2>
+        <div class="range-grid">
+          <label>背景亮度 <output id="brightnessValue"></output><input id="brightness" type="range" min="0.2" max="1.2" step="0.01"></label>
+          <label>背景饱和度 <output id="saturationValue"></output><input id="saturation" type="range" min="0" max="1.8" step="0.01"></label>
+          <label>背景遮罩 <output id="overlayValue"></output><input id="overlayOpacity" type="range" min="0" max="0.85" step="0.01"></label>
+          <label>普通面板透明度 <output id="panelOpacityValue"></output><input id="panelOpacity" type="range" min="0.1" max="1" step="0.01"></label>
+          <label>输入框/弹窗透明度 <output id="strongOpacityValue"></output><input id="strongOpacity" type="range" min="0.1" max="1" step="0.01"></label>
+          <label>消息透明度 <output id="messageOpacityValue"></output><input id="messageOpacity" type="range" min="0.1" max="1" step="0.01"></label>
+          <label>思考区域透明度 <output id="thinkingOpacityValue"></output><input id="thinkingOpacity" type="range" min="0.1" max="1" step="0.01"></label>
+          <label>边框透明度 <output id="borderOpacityValue"></output><input id="borderOpacity" type="range" min="0.1" max="1" step="0.01"></label>
+          <label>磨砂模糊 <output id="blurValue"></output><input id="glassBlur" type="range" min="0" max="40" step="1"></label>
+          <label>面板圆角 <output id="radiusValue"></output><input id="panelRadius" type="range" min="0" max="32" step="1"></label>
+        </div>
+        <label class="check"><input id="animations" type="checkbox"> 启用主题动画</label>
+      </article>
+
+      <article class="panel wide">
+        <h2>组件开关</h2>
+        <div class="checks">
+          <label class="check"><input id="componentBackground" type="checkbox"> 背景图片层</label>
+          <label class="check"><input id="componentSidebar" type="checkbox"> 左侧边栏</label>
+          <label class="check"><input id="componentComposer" type="checkbox"> 输入区域</label>
+          <label class="check"><input id="componentMessages" type="checkbox"> 用户与助手消息</label>
+          <label class="check"><input id="componentThinking" type="checkbox"> 思考过程</label>
+          <label class="check"><input id="componentDialogs" type="checkbox"> 弹窗与菜单</label>
+        </div>
+      </article>
+    </section>
+
+    <footer>
+      <button id="reset" class="muted" type="button">恢复扩展默认值</button>
+      <button id="save" class="primary" type="button">保存并应用</button>
+    </footer>
+  </main>
+
+  <script src="../shared/defaults.js"></script>
+  <script src="index.js"></script>
+</body>
+</html>

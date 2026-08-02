@@ -1,0 +1,288 @@
+如何将此皮肤扩展迁移到其他网页
+=====================================
+
+本文档记录了将 Doubao Web Skin 迁移到任意其他网页的完整步骤。
+当前版本基于 DeepSeek → Doubao 的迁移经验总结而成。
+
+
+一、理解项目结构
+----------------
+
+每个文件按"品牌相关度"分为三个层级：
+
+  【层级A：必须修改】与目标网站强绑定的文件
+    ├── manifest.json          → 扩展名、描述、匹配域名
+    ├── src/content/index.js   → 目标网站 HOST、DOM 适配器
+    ├── src/background/index.js → 广播消息的目标 URL 匹配
+    └── scripts/validate.mjs   → host_permissions 校验
+
+  【层级B：建议修改】包含品牌名/术语的文件
+    ├── src/shared/defaults.js → 全局命名空间（xxxSkinDefaults）
+    ├── src/popup/index.html   → 弹窗标题、提示文案
+    ├── src/popup/index.js     → 提示文案中的网站名前缀
+    ├── src/options/index.html → 主题工作室标题、提示
+    ├── src/options/index.js   → 提示文案中的网站名前缀
+    ├── package.json           → 包名、描述
+    ├── README.md              → 全部网站名和路径引用
+    └── 手动加载与验证.md        → 同上
+
+  【层级C：批量替换】通过固定规则统一修改所有文件
+    CSS 变量前缀    --ds-skin-*   → --xx-skin-*
+    data 属性前缀   data-ds-skin-* → data-ds-xx-*
+    DOM ID 前缀     ds-web-skin-* → xx-web-skin-*
+    全局命名空间    DeepSeekSkinDefaults → XxxSkinDefaults
+
+
+二、迁移步骤（推荐顺序）
+------------------------
+
+步骤 1：复制整个项目
+
+    将整个文件夹复制一份，用新网站名命名。
+    删除 dist/ 目录（后续重新构建生成）。
+
+步骤 2：确定三个关键值
+
+    a) 目标网站域名（如 www.example.com）
+    b) 简称/品牌名（如 Example，遵循驼峰/全大写约定）
+    c) CSS 属性前缀（如 --ex-skin-，取品牌名前两个字母 + -skin-）
+
+    这三个值确定后，后续所有替换都围绕它们展开。
+
+步骤 3：修改层级A文件（必须修改）
+
+    3a. manifest.json
+        {
+          "name": "Example Web Skin",
+          "description": "在 Example 官方网页中应用本地运行时主题...",
+          "host_permissions": ["https://www.example.com/*"],
+          "action": { "default_title": "Example Web Skin" },
+          "content_scripts": [{ "matches": ["https://www.example.com/*"] }]
+        }
+
+    3b. src/content/index.js
+        - 第 4 行：const HOST = "www.example.com";
+        - 第 5 行：const ROOT_ID = "example-web-skin-root";
+        - 第 6 行：const LEGACY_BANNER_ID = "example-web-skin-welcome-banner";
+        - 第 675 行：正则中的品牌关键词替换（/assistant|bot|deepseek/ → /assistant|bot|example/）
+        - 第 778 行：explicitAssistant 正则中的品牌关键词替换
+        - 所有 DOM 适配器函数需要根据目标网站实际结构重写（见第五节）
+
+    3c. src/background/index.js
+        - 第 17 行：chrome.tabs.query({ url: "https://www.example.com/*" })
+
+    3d. scripts/validate.mjs
+        - 第 13 行：域名校验字符串改为目标网站域名
+
+步骤 4：修改层级B文件（建议修改）
+
+    4a. src/shared/defaults.js 最后一行
+        globalThis.ExampleSkinDefaults = { ... }
+
+    4b. src/popup/index.html
+        <title>Example Web Skin</title>
+        <div class="eyebrow">EXAMPLE WEB SKIN</div>
+        <p id="statusHint">请先打开 Example 官方聊天页面。</p>
+
+    4c. src/popup/index.js
+        - globalThis.ExampleSkinDefaults 引用
+        - 错误提示中的网站名
+
+    4d. src/options/index.html
+        <title>Example Web Skin 主题工作室</title>
+        <div class="eyebrow">EXAMPLE WEB SKIN</div>
+
+    4e. src/options/index.js
+        - globalThis.ExampleSkinDefaults 引用
+        - 保存成功提示中的网站名
+
+    4f. package.json
+        "name": "example-web-skin"
+        "description": "Example 网页版运行时主题扩展原型"
+
+    4g. README.md 和 手动加载与验证.md
+        全文替换网站名、URL 路径。
+
+步骤 5：全局批量替换
+
+    以下替换按顺序（先替换长字符串，再替换短字符串）对所有
+    .json .js .css .html .md .mjs 文件执行：
+
+    替换顺序（重要！具体→通用，避免误伤）：
+      1. DeepSeekSkinDefaults  → ExampleSkinDefaults
+      2. deepseek-web-skin     → example-web-skin
+      3. DEEPSEEK WEB SKIN    → EXAMPLE WEB SKIN
+      4. DeepSeek Web Skin    → Example Web Skin
+      5. DeepSeek             → Example
+      6. dsSkin              → exSkin
+      7. data-ds-skin        → data-ex-skin
+      8. --ds-skin           → --ex-skin
+      9. chat.deepseek.com   → www.example.com
+     10. deepseek            → example
+
+    注意：
+    - 替换 5 会把 "DeepSeek" 在中文名称中也替换掉（如"辅助DeepSeek"→"辅助Example"）
+    - 替换 10 会把剩余的 "deepseek" 小写形式也替换掉
+    - 如果新网站的品牌名包含 DeepSeek 的任意子串，请手动调整替换顺序
+
+步骤 6：清理旧文件
+
+    删除以下不需要的目录/文件：
+    - dist/        （旧的构建产物，后续 npm run build 重新生成）
+    - dss/         （旧网站的截图）
+    - .agents/     （旧的 agent 定义文件，如有）
+    - *.zip        （旧的打包文件，如有）
+
+    重命名包含旧品牌名的 .md 文件。
+
+步骤 7：构建并加载
+
+    npm run build
+    npm run check
+
+    在 Chrome 中加载 dist/ 目录进行测试。
+
+
+三、CSS 变量和 data 属性前缀对照表
+----------------------------------
+
+    原始前缀 (DeepSeek)    → 迁移后前缀 (Doubao)    → 你的前缀
+    ─────────────────────────────────────────────────────────
+    --ds-skin-*            --db-skin-*              --xx-skin-*
+    data-ds-skin-*         data-db-skin-*           data-xx-skin-*
+    dsSkinEnabled          dbSkinEnabled            xxSkinEnabled
+    dsSkinRole             dbSkinRole               xxSkinRole
+    dsSkinMessage          dbSkinMessage            xxSkinMessage
+    dsSkinDetected         dbSkinDetected           xxSkinDetected
+    dsSkinSelected         dbSkinSelected           xxSkinSelected
+    dsSkinControl          dbSkinControl            xxSkinControl
+    dsSkinComposerTools    dbSkinComposerTools      xxSkinComposerTools
+    dsSkinUploadGroup      dbSkinUploadGroup        xxSkinUploadGroup
+    dsSkinSidebarControl   dbSkinSidebarControl     xxSkinSidebarControl
+    dsSkinComposerDock     dbSkinComposerDock       xxSkinComposerDock
+    dsSkinBottomSurface    dbSkinBottomSurface      xxSkinBottomSurface
+    dsSkinThinkingHeader   dbSkinThinkingHeader     xxSkinThinkingHeader
+    dsSkinCodeBlock        dbSkinCodeBlock          xxSkinCodeBlock
+    dsSkinCodeToolbar      dbSkinCodeToolbar        xxSkinCodeToolbar
+    dsSkinCodeBody         dbSkinCodeBody           xxSkinCodeBody
+    dsSkinOwned            dbSkinOwned              xxSkinOwned
+    dsSkinSelectionBound   dbSkinSelectionBound     xxSkinSelectionBound
+
+
+四、CSS 选择器中的前缀引用（勿遗漏）
+------------------------------------
+
+    base.css 文件中以下选择器全部需要替换 data 属性前缀：
+
+    [data-ds-skin-enabled]          → [data-xx-skin-enabled]
+    [data-ds-skin-role="header"]    → [data-xx-skin-role="header"]
+    [data-ds-skin-role="sidebar"]   → [data-xx-skin-role="sidebar"]
+    [data-ds-skin-role="composer"]  → [data-xx-skin-role="composer"]
+    [data-ds-skin-role="thinking"]  → [data-xx-skin-role="thinking"]
+    [data-ds-skin-role="dialog"]    → [data-xx-skin-role="dialog"]
+    [data-ds-skin-message="user"]   → [data-xx-skin-message="user"]
+    [data-ds-skin-message="assistant"] → [data-xx-skin-message="assistant"]
+    ...以此类推，所有 data-ds-skin-* 都需替换。
+
+    DOM ID 也需要替换：
+    #deepseek-web-skin-root      → #example-web-skin-root
+    #deepseek-web-skin-background → #example-web-skin-background
+    #deepseek-web-skin-overlay    → #example-web-skin-overlay
+    #deepseek-web-skin-glow       → #example-web-skin-glow
+    #deepseek-web-skin-welcome-banner → #example-web-skin-welcome-banner
+
+
+五、DOM 适配器重写指南（最关键步骤）
+------------------------------------
+
+    src/content/index.js 中的以下函数针对原网站 DOM 结构编写，
+    更换目标网站后大概率需要重写：
+
+    findAppRoot()
+        → 找到目标网站的主应用根节点（#root / #app / data-reactroot）
+          对于 React/Vue 应用通常是 #root 或 #app。
+
+    findSidebar()
+        → 找到左侧会话/导航栏的外层容器。
+          调整 QUICK_SIDEBAR_SELECTOR 中的选择器、sidebarGeometryMatches
+          的几何范围参数（阈值：left、top、height、width 等）。
+
+    findComposerInput()
+        → 找到消息输入框。通常是 textarea、[role="textbox"]
+          或 contenteditable 元素。
+
+    findComposer()
+        → 找到输入区域的完整容器（form 或父级容器）。
+
+    findMain()
+        → 找到主内容区域。通常是 <main>、[role="main"]
+          或包含 data-testid 的聊天容器。
+
+    findHeader()
+        → 找到顶部标题栏。调整选择器列表和 headerGeometryMatches
+          的几何范围参数。
+
+    markSidebarControls()
+        → 侧边栏中的新建对话/搜索/折叠按钮。调整中文/英文标签匹配。
+          当前正则：新建对话|新对话|new\s*chat
+          如果目标网站使用不同的按钮文案，需要修改。
+
+    markComposerControls()
+        → 输入区域周围的模式切换（深度思考/联网搜索）、附件上传、
+          发送按钮。调整 modePattern 正则：
+          当前：深度思考|智能搜索|联网搜索|deep\s*think|search
+          如果目标网站使用不同的术语，必须修改。
+
+    markMessages()
+        → 用户消息和 AI 消息的语义标记。调整：
+          - markSemanticMessages 中的选择器列表
+          - 语义识别正则：/assistant|bot|doubao/
+          - markGeometricUserMessages 的几何评分参数
+          - markGeometricAssistantMessages 的几何评分参数
+
+    调试方法：
+      1. 打开目标网站，按 F12 打开开发者工具
+      2. 使用元素选择器（左上角箭头图标）点击侧边栏
+      3. 记录侧边栏元素的标签名、class、data-* 属性、几何位置
+      4. 同样的方式记录：输入框、用户消息、AI 消息、思考区域
+      5. 根据实际 DOM 调整上述函数中的选择器和判断条件
+      6. 在扩展弹窗中查看兼容评分，评分≥80 才算适配成功
+
+
+六、验证清单
+------------
+
+完成迁移后逐项检查：
+
+    □ manifest.json 的 name、description、host_permissions、matches 已更新
+    □ src/content/index.js 的 HOST 常量已更新
+    □ src/content/index.js 的 DOM 适配器已在目标网站上实际测试
+    □ src/background/index.js 的 chrome.tabs.query URL 已更新
+    □ scripts/validate.mjs 的域名校验已更新
+    □ 所有文件中的 CSS 变量前缀（--xx-skin）已统一
+    □ 所有文件中的 data 属性前缀（data-xx-skin）已统一
+    □ 所有文件中的 DOM ID 前缀已统一
+    □ 全局命名空间（globalThis.XxxSkinDefaults）已统一
+    □ package.json 的 name 已更新
+    □ popup 和 options 页面的文案已更新
+    □ 旧的 dist/ 目录已删除
+    □ npm run check 通过
+    □ 扩展弹窗显示兼容评分 ≥ 60
+    □ 主题能正常启用和关闭
+    □ 输入框可正常输入和发送
+    □ 侧边栏可正常点击和滚动
+    □ 所有按钮（发送、上传、模式切换等）可正常点击
+    □ 弹窗和下拉菜单可读
+    □ 刷新页面后主题自动恢复
+
+
+七、注意事项
+------------
+
+    1. 目标网站必须是 HTTPS 且允许注入 Content Script。
+    2. 如果目标网站有 CSP（内容安全策略），可能需要额外调整。
+    3. 不要在生产环境使用未经签名的扩展。
+    4. 不要将包含真实聊天内容的截图发给 AI 助手。
+    5. 主题色彩组（海洋蓝、紫罗兰等五套预设）是为暗色模式设计的，
+       如果目标网站是浅色模式，需额外调整 DEFAULT_SETTINGS 中的颜色值。
+    6. 每次目标网站更新前端代码后，DOM 适配器可能需要重新调整。
