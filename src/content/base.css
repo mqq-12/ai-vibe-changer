@@ -1,11 +1,10 @@
 /* Doubao Web Skin — styles are inert until the root marker is present. */
 
 /* ==================================================================
-   LAYER FOUNDATION — EVERYTHING depends on getting z-index right.
+   LAYER FOUNDATION
    The background root sits at z-index:0 and every "real" child of
    <body> is forced to z-index:1 so the background image shows
-   through transparent page surfaces instead of sitting behind a
-   solid-white (or solid-dark) default body.
+   through transparent page surfaces.
    ================================================================== */
 html[data-db-skin-enabled="true"] {
   color-scheme: dark;
@@ -16,8 +15,6 @@ html[data-db-skin-enabled="true"] body {
   position: relative;
 }
 
-/* Push every direct child of <body> (except our skin root) forward
-   so they paint ON TOP of the background layer. */
 html[data-db-skin-enabled="true"] body > :not(#doubao-web-skin-root) {
   position: relative;
   z-index: 1;
@@ -94,9 +91,8 @@ html[data-db-skin-enabled="true"][data-db-skin-color-overlay="false"] #doubao-we
 }
 
 /* ==================================================================
-   app-root / main — background-transparent stays ALWAYS ON so the
-   uploaded image can show through. Text colours are gated behind the
-   messages component switch.
+   app-root / main — background-transparent ALWAYS ON.
+   Text colours are gated behind the messages component switch.
    ================================================================== */
 html[data-db-skin-enabled="true"] [data-db-skin-role="app-root"],
 html[data-db-skin-enabled="true"] [data-db-skin-role="main"] {

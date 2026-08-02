@@ -886,13 +886,13 @@
   let backgroundFixLastPunch = 0;
 
   function scheduleBackgroundFix() {
-    if (backgroundFixRaf !== null) return;
+    if (backgroundFixRaf !== null) return; // already scheduled
     backgroundFixRaf = requestAnimationFrame(() => {
       backgroundFixRaf = null;
       if (!state.settings?.enabled) return;
       const now = Date.now();
-      // Throttle: punch at most once every 120ms of rAF ticks to
-      // avoid burning CPU when React is churning.
+      // Throttle: punch at most once every 120ms to avoid CPU burn
+      // when React is churning the DOM heavily.
       if (now - backgroundFixLastPunch < 120) return;
       backgroundFixLastPunch = now;
       punchAllOpaqueLayers(document);
@@ -997,6 +997,7 @@
           // Re-punch transparent holes immediately — React may have
           // re-applied opaque backgrounds after rendering.
           punchAllOpaqueLayers(document);
+          scheduleBackgroundFix();
           for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
               if (node instanceof HTMLElement && refreshCachedChrome(node)) break;
@@ -1008,22 +1009,6 @@
         }
       });
       state.observer.observe(document.documentElement, { childList: true, subtree: true });
-    }
-
-    /* ── background-fix: keep #root transparent against React re-renders ── */
-    let backgroundFixRaf = null;
-    let backgroundFixLastPunch = 0;
-
-    function scheduleBackgroundFix() {
-      if (backgroundFixRaf !== null) return;
-      backgroundFixRaf = requestAnimationFrame(() => {
-        backgroundFixRaf = null;
-        if (!state.settings?.enabled) return;
-        const now = Date.now();
-        if (now - backgroundFixLastPunch < 120) return;
-        backgroundFixLastPunch = now;
-        punchAllOpaqueLayers(document);
-      });
     }
     if (!state.routeTimer) {
       state.routeTimer = setInterval(() => {
