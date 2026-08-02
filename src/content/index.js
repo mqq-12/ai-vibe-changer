@@ -842,20 +842,44 @@
     return { score, mode: score >= 80 ? "full" : score >= 60 ? "safe" : "unsupported", signals };
   }
 
-  function forceTransparentBackground(element) {
+  function forceElementTransparent(element) {
     if (!(element instanceof HTMLElement)) return;
     const tag = (element.tagName || "").toLowerCase();
-    // Never touch body or html — those are handled by base.css.
-    if (tag === "body" || tag === "html") return;
-    // Only punch through surface-like elements that have a computed
-    // background-color or background-image set by the site.
+    if (tag === "body" || tag === "html" || element.id === ROOT_ID) return;
     const style = getComputedStyle(element);
+    const bg = style.backgroundColor || "";
     const hasBgImage = style.backgroundImage && style.backgroundImage !== "none";
-    const bgColor = style.backgroundColor || "";
-    const isOpaque = bgColor && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0(?:\.0+)?\s*\)|transparent/.test(bgColor);
+    const isOpaque = bg && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0(?:\.0+)?\s*\)|transparent/.test(bg);
     if (hasBgImage || isOpaque) {
       element.style.setProperty("background", "transparent", "important");
       element.style.setProperty("background-color", "transparent", "important");
+    }
+  }
+
+  function punchAllOpaqueLayers(root = document) {
+    // Only punch when the background-image component is on AND a
+    // background image has actually been uploaded.
+    if (!state.settings?.components?.background) return;
+    if (!state.settings?.backgroundDataUrl) return;
+
+    // 1) #root itself
+    const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
+    if (appRoot) forceElementTransparent(appRoot);
+
+    // 2) Every child of #root up to 4 levels deep that has a solid background
+    const scanRoot = appRoot || root.body || root;
+    const candidates = [scanRoot];
+    for (let depth = 0; depth < 4 && candidates.length; depth++) {
+      const next = [];
+      for (const el of candidates) {
+        if (!(el instanceof HTMLElement)) continue;
+        forceElementTransparent(el);
+        for (const child of el.children) {
+          if (child instanceof HTMLElement) next.push(child);
+        }
+      }
+      candidates.length = 0;
+      candidates.push(...next);
     }
   }
 
@@ -874,7 +898,7 @@
         current = current.parentElement;
       }
     }
-    for (const el of targets) forceTransparentBackground(el);
+    for (const el of targets) forceElementTransparent(el);
   }
 
   function adaptPage(reason = "manual") {
@@ -952,6 +976,9 @@
     if (!state.observer) {
       state.observer = new MutationObserver((mutations) => {
         if (mutations.some((mutation) => mutation.addedNodes.length || mutation.removedNodes.length)) {
+          // Re-punch transparent holes immediately — React may have
+          // re-applied opaque backgrounds after rendering.
+          punchAllOpaqueLayers(document);
           for (const mutation of mutations) {
             for (const node of mutation.addedNodes) {
               if (node instanceof HTMLElement && refreshCachedChrome(node)) break;
