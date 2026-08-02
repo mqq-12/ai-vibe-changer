@@ -4,6 +4,11 @@
   const HOST = "www.doubao.com";
   const ROOT_ID = "doubao-web-skin-root";
   const LEGACY_BANNER_ID = "doubao-web-skin-welcome-banner";
+
+  /* ---- debug logger: set to false for production ---- */
+  const DEBUG = true;
+  function dbg(...args) { if (DEBUG) console.log("[DoubaoSkin]", ...args); }
+  /* -------------------------------------------------- */
   const VARIABLE_NAMES = [
     "--db-skin-accent",
     "--db-skin-text-primary",
@@ -844,30 +849,44 @@
 
   function forceElementTransparent(element) {
     if (!(element instanceof HTMLElement)) return;
-    const tag = (element.tagName || "").toLowerCase();
-    // Never touch our own skin root.
-    if (element.id === ROOT_ID) return;
+    if (element.id === ROOT_ID) return; // never touch our own skin root
     element.style.setProperty("background", "transparent", "important");
     element.style.setProperty("background-color", "transparent", "important");
     element.style.setProperty("background-image", "none", "important");
   }
 
   function punchAllOpaqueLayers(root = document) {
-    if (!state.settings?.components?.background) return;
-    if (!state.settings?.backgroundDataUrl) return;
+    if (!state.settings?.components?.background) {
+      dbg("punchAllOpaqueLayers SKIP — background component OFF");
+      return;
+    }
+    if (!state.settings?.backgroundDataUrl) {
+      dbg("punchAllOpaqueLayers SKIP — no backgroundDataUrl (no image uploaded)");
+      return;
+    }
 
-    // 1) html and body themselves
+    let punched = 0;
+
+    // 1) html and body
     if (root.documentElement instanceof HTMLElement) {
-      forceElementTransparent(root.documentElement);
+      const docEl = root.documentElement;
+      const prevBg = docEl.style.getPropertyValue("background");
+      forceElementTransparent(docEl);
+      if (docEl.style.getPropertyValue("background") !== prevBg) punched++;
     }
     if (root.body instanceof HTMLElement) {
-      forceElementTransparent(root.body);
+      const body = root.body;
+      const prevBg = body.style.getPropertyValue("background-color");
+      forceElementTransparent(body);
+      if (body.style.getPropertyValue("background-color") !== prevBg) punched++;
     }
 
-    // 2) #root and everything inside it, breath-first up to 5 levels
+    // 2) #root and everything inside, breadth-first up to 5 levels
     const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
     if (appRoot) {
+      const prevRootBg = appRoot.style.getPropertyValue("background-color");
       forceElementTransparent(appRoot);
+      if (appRoot.style.getPropertyValue("background-color") !== prevRootBg) punched++;
       const queue = [appRoot];
       for (let depth = 0; depth < 5 && queue.length; depth++) {
         const len = queue.length;
@@ -879,8 +898,13 @@
             if (child instanceof HTMLElement) queue.push(child);
           }
         }
+        punched += len;
         queue.splice(0, len);
       }
+    }
+
+    if (punched > 0 || (root.documentElement.style.getPropertyValue("background") !== "")) {
+      dbg("punchAllOpaqueLayers: punched ~" + punched + " elements to transparent");
     }
   }
 
@@ -889,13 +913,18 @@
   let backgroundFixLastPunch = 0;
 
   function scheduleBackgroundFix() {
-    if (backgroundFixRaf !== null) return;
+    if (backgroundFixRaf !== null) return; // already queued
     backgroundFixRaf = requestAnimationFrame(() => {
       backgroundFixRaf = null;
-      if (!state.settings?.enabled) return;
+      if (!state.settings?.enabled) { dbg("scheduleBackgroundFix SKIP — disabled"); return; }
       const now = Date.now();
-      if (now - backgroundFixLastPunch < 100) return;
+      if (now - backgroundFixLastPunch < 100) {
+        // re-queue for the next frame
+        scheduleBackgroundFix();
+        return;
+      }
       backgroundFixLastPunch = now;
+      dbg("scheduleBackgroundFix: punching ...");
       punchAllOpaqueLayers(document);
     });
   }
@@ -1078,18 +1107,30 @@
   }
 
   async function bootstrap() {
-    if (state.started || !allowedPage()) return;
+    dbg("bootstrap() start — hostname:", location.hostname, "protocol:", location.protocol);
+    dbg("allowedPage():", allowedPage());
+
+    if (state.started || !allowedPage()) {
+      dbg("bootstrap bailed — state.started:", state.started, "allowedPage:", allowedPage());
+      return;
+    }
     state.started = true;
     await applySettings();
+    dbg("applySettings() done — state.settings:", state.settings ? "loaded" : "NULL");
+    dbg("enabled:", state.settings?.enabled, "backgroundDataUrl length:", (state.settings?.backgroundDataUrl || "").length);
     if (document.readyState === "loading") {
+      dbg("document still loading — will fire background fix on DOMContentLoaded");
       document.addEventListener("DOMContentLoaded", () => {
-        if (!state.settings?.enabled) return;
+        dbg("DOMContentLoaded fired");
+        if (!state.settings?.enabled) { dbg("enabled=false at DOMContentLoaded — bailing"); return; }
         ensureSkinRoot();
         scheduleQuickChromeRefresh();
         scheduleBackgroundFix();
         scheduleAdaptation("dom-ready");
+        dbg("DOMContentLoaded hooks complete");
       }, { once: true });
     }
+    dbg("bootstrap() complete");
   }
 
   chrome.storage.onChanged.addListener((changes, areaName) => {
