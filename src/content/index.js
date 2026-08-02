@@ -856,55 +856,26 @@
   }
 
   function punchAllOpaqueLayers(root = document) {
-    if (!state.settings?.components?.background) {
-      dbg("punchAllOpaqueLayers SKIP — background component OFF");
-      return;
-    }
-    if (!state.settings?.backgroundDataUrl) {
-      dbg("punchAllOpaqueLayers SKIP — no backgroundDataUrl (no image uploaded)");
-      return;
-    }
+    if (!state.settings?.components?.background || !state.settings?.backgroundDataUrl) return;
 
-    let punched = 0;
+    // 1) <html> and <body>
+    if (root.documentElement) forceElementTransparent(root.documentElement);
+    if (root.body) forceElementTransparent(root.body);
 
-    // 1) html and body
-    if (root.documentElement instanceof HTMLElement) {
-      const docEl = root.documentElement;
-      const prevBg = docEl.style.getPropertyValue("background");
-      forceElementTransparent(docEl);
-      if (docEl.style.getPropertyValue("background") !== prevBg) punched++;
-    }
-    if (root.body instanceof HTMLElement) {
-      const body = root.body;
-      const prevBg = body.style.getPropertyValue("background-color");
-      forceElementTransparent(body);
-      if (body.style.getPropertyValue("background-color") !== prevBg) punched++;
-    }
-
-    // 2) #root and everything inside, breadth-first up to 5 levels
+    // 2) #root / #app and every descendant up to 6 levels deep
     const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
-    if (appRoot) {
-      const prevRootBg = appRoot.style.getPropertyValue("background-color");
-      forceElementTransparent(appRoot);
-      if (appRoot.style.getPropertyValue("background-color") !== prevRootBg) punched++;
-      const queue = [appRoot];
-      for (let depth = 0; depth < 5 && queue.length; depth++) {
-        const len = queue.length;
-        for (let i = 0; i < len; i++) {
-          const el = queue[i];
-          if (!(el instanceof HTMLElement)) continue;
-          forceElementTransparent(el);
-          for (const child of el.children) {
-            if (child instanceof HTMLElement) queue.push(child);
-          }
-        }
-        punched += len;
-        queue.splice(0, len);
-      }
-    }
+    if (!appRoot) return;
 
-    if (punched > 0 || (root.documentElement.style.getPropertyValue("background") !== "")) {
-      dbg("punchAllOpaqueLayers: punched ~" + punched + " elements to transparent");
+    forceElementTransparent(appRoot);
+    const layers = [appRoot];
+    for (let depth = 0; depth < 6 && layers.length; depth++) {
+      for (let i = layers.length - 1; i >= 0; i--) {
+        const el = layers[i];
+        if (!(el instanceof HTMLElement)) { layers.splice(i, 1); continue; }
+        forceElementTransparent(el);
+        layers.splice(i, 1);
+        for (const child of el.children) layers.push(child);
+      }
     }
   }
 
@@ -913,18 +884,13 @@
   let backgroundFixLastPunch = 0;
 
   function scheduleBackgroundFix() {
-    if (backgroundFixRaf !== null) return; // already queued
+    if (backgroundFixRaf !== null) return;
     backgroundFixRaf = requestAnimationFrame(() => {
       backgroundFixRaf = null;
-      if (!state.settings?.enabled) { dbg("scheduleBackgroundFix SKIP — disabled"); return; }
+      if (!state.settings?.enabled) return;
       const now = Date.now();
-      if (now - backgroundFixLastPunch < 100) {
-        // re-queue for the next frame
-        scheduleBackgroundFix();
-        return;
-      }
+      if (now - backgroundFixLastPunch < 100) { scheduleBackgroundFix(); return; }
       backgroundFixLastPunch = now;
-      dbg("scheduleBackgroundFix: punching ...");
       punchAllOpaqueLayers(document);
     });
   }
