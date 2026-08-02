@@ -128,6 +128,7 @@
     const root = document.documentElement;
     root.dataset.dbSkinEnabled = "true";
     root.dataset.dbSkinTheme = settings.themeId;
+    root.dataset.dbSkinHasBackground = String(Boolean(settings.backgroundDataUrl && settings.components.background));
     root.dataset.dbSkinMode = "dark";
     root.dataset.dbSkinAnimations = String(Boolean(settings.effects.animations));
     root.dataset.dbSkinBackground = String(Boolean(settings.components.background));
@@ -1066,7 +1067,7 @@
     const root = document.documentElement;
     for (const name of VARIABLE_NAMES) root.style.removeProperty(name);
     for (const key of [
-      "dbSkinEnabled", "dbSkinTheme", "dbSkinMode", "dbSkinAnimations", "dbSkinBackground",
+      "dbSkinEnabled", "dbSkinTheme", "dbSkinMode", "dbSkinAnimations", "dbSkinBackground", "dbSkinHasBackground",
       "dbSkinHeader", "dbSkinSidebar", "dbSkinComposer", "dbSkinMessages", "dbSkinThinking", "dbSkinDialogs", "dbSkinColorOverlay"
     ]) delete root.dataset[key];
     clearElementCache();
