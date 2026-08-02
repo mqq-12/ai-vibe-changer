@@ -846,14 +846,12 @@
     if (!(element instanceof HTMLElement)) return;
     const tag = (element.tagName || "").toLowerCase();
     if (tag === "body" || tag === "html" || element.id === ROOT_ID) return;
-    const style = getComputedStyle(element);
-    const bg = style.backgroundColor || "";
-    const hasBgImage = style.backgroundImage && style.backgroundImage !== "none";
-    const isOpaque = bg && !/rgba\(\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*0(?:\.0+)?\s*\)|transparent/.test(bg);
-    if (hasBgImage || isOpaque) {
-      element.style.setProperty("background", "transparent", "important");
-      element.style.setProperty("background-color", "transparent", "important");
-    }
+    // Always punch — don't check computed style, because React inline
+    // styles can set a background at any moment and we need to
+    // override it unconditionally.
+    element.style.setProperty("background", "transparent", "important");
+    element.style.setProperty("background-color", "transparent", "important");
+    element.style.setProperty("background-image", "none", "important");
   }
 
   function punchAllOpaqueLayers(root = document) {
@@ -866,7 +864,7 @@
     const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
     if (appRoot) forceElementTransparent(appRoot);
 
-    // 2) Every child of #root up to 4 levels deep that has a solid background
+    // 2) Every child of #root up to 4 levels deep
     const scanRoot = appRoot || root.body || root;
     const candidates = [scanRoot];
     for (let depth = 0; depth < 4 && candidates.length; depth++) {
@@ -881,6 +879,24 @@
       candidates.length = 0;
       candidates.push(...next);
     }
+  }
+
+  /* ── background-fix: keep #root transparent against React re-renders ── */
+  let backgroundFixRaf = null;
+  let backgroundFixLastPunch = 0;
+
+  function scheduleBackgroundFix() {
+    if (backgroundFixRaf !== null) return;
+    backgroundFixRaf = requestAnimationFrame(() => {
+      backgroundFixRaf = null;
+      if (!state.settings?.enabled) return;
+      const now = Date.now();
+      // Throttle: punch at most once every 120ms of rAF ticks to
+      // avoid burning CPU when React is churning.
+      if (now - backgroundFixLastPunch < 120) return;
+      backgroundFixLastPunch = now;
+      punchAllOpaqueLayers(document);
+    });
   }
 
   function punchBackgroundHoles(scope = document) {
@@ -908,8 +924,10 @@
       ensureSkinRoot();
       document.getElementById(LEGACY_BANNER_ID)?.remove();
 
-      // Punch background holes FIRST so the image is never covered.
+      // Punch background holes FIRST — always, before any marking.
       punchBackgroundHoles(document);
+      punchAllOpaqueLayers(document);
+      scheduleBackgroundFix();
 
       const comp = state.settings.components;
 
@@ -991,6 +1009,22 @@
       });
       state.observer.observe(document.documentElement, { childList: true, subtree: true });
     }
+
+    /* ── background-fix: keep #root transparent against React re-renders ── */
+    let backgroundFixRaf = null;
+    let backgroundFixLastPunch = 0;
+
+    function scheduleBackgroundFix() {
+      if (backgroundFixRaf !== null) return;
+      backgroundFixRaf = requestAnimationFrame(() => {
+        backgroundFixRaf = null;
+        if (!state.settings?.enabled) return;
+        const now = Date.now();
+        if (now - backgroundFixLastPunch < 120) return;
+        backgroundFixLastPunch = now;
+        punchAllOpaqueLayers(document);
+      });
+    }
     if (!state.routeTimer) {
       state.routeTimer = setInterval(() => {
         if (location.href !== state.previousUrl) {
@@ -1011,6 +1045,8 @@
     state.adaptationTimer = null;
     if (state.chromeFrame !== null) cancelAnimationFrame(state.chromeFrame);
     state.chromeFrame = null;
+    if (backgroundFixRaf !== null) cancelAnimationFrame(backgroundFixRaf);
+    backgroundFixRaf = null;
     state.adapting = false;
   }
 
@@ -1051,6 +1087,8 @@
     ensureSkinRoot();
     adaptPage("settings-applied");
     startWatchers();
+    // Kick off the rAF background-fix loop
+    scheduleBackgroundFix();
   }
 
   async function bootstrap() {
@@ -1062,6 +1100,7 @@
         if (!state.settings?.enabled) return;
         ensureSkinRoot();
         scheduleQuickChromeRefresh();
+        scheduleBackgroundFix();
         scheduleAdaptation("dom-ready");
       }, { once: true });
     }
