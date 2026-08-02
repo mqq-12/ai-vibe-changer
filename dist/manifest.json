@@ -1,0 +1,25 @@
+{
+  "manifest_version": 3,
+  "name": "Doubao Web Skin",
+  "version": "0.1.0",
+  "description": "在 Doubao 官方网页中应用本地运行时主题，不修改对话和请求逻辑。",
+  "permissions": ["storage"],
+  "host_permissions": ["https://www.doubao.com/*"],
+  "background": {
+    "service_worker": "src/background/index.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "Doubao Web Skin",
+    "default_popup": "src/popup/index.html"
+  },
+  "options_page": "src/options/index.html",
+  "content_scripts": [
+    {
+      "matches": ["https://www.doubao.com/*"],
+      "js": ["src/shared/defaults.js", "src/content/index.js"],
+      "css": ["src/content/base.css"],
+      "run_at": "document_start"
+    }
+  ]
+}
