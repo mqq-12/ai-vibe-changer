@@ -858,25 +858,38 @@
   function punchAllOpaqueLayers(root = document) {
     if (!state.settings?.components?.background || !state.settings?.backgroundDataUrl) return;
 
-    // 1) <html> and <body>
-    if (root.documentElement) forceElementTransparent(root.documentElement);
-    if (root.body) forceElementTransparent(root.body);
+    let count = 0;
 
-    // 2) #root / #app and every descendant up to 6 levels deep
+    // html + body
+    if (root.documentElement) { forceElementTransparent(root.documentElement); count++; }
+    if (root.body) { forceElementTransparent(root.body); count++; }
+
+    // #root + up to 6 descendant levels
     const appRoot = root.querySelector?.("#root") || root.querySelector?.("#app");
-    if (!appRoot) return;
-
-    forceElementTransparent(appRoot);
-    const layers = [appRoot];
-    for (let depth = 0; depth < 6 && layers.length; depth++) {
-      for (let i = layers.length - 1; i >= 0; i--) {
-        const el = layers[i];
-        if (!(el instanceof HTMLElement)) { layers.splice(i, 1); continue; }
-        forceElementTransparent(el);
-        layers.splice(i, 1);
-        for (const child of el.children) layers.push(child);
+    if (appRoot) {
+      forceElementTransparent(appRoot); count++;
+      let layers = [appRoot];
+      for (let d = 0; d < 6 && layers.length; d++) {
+        const next = [];
+        for (let i = 0; i < layers.length; i++) {
+          const el = layers[i];
+          if (!(el instanceof HTMLElement)) continue;
+          forceElementTransparent(el); count++;
+          for (const child of el.children) next.push(child);
+        }
+        layers = next;
       }
     }
+
+    // Recurse into Shadow DOM (open mode)
+    try {
+      for (const el of [...(appRoot?.querySelectorAll?.("*") || [])]) {
+        if (el.shadowRoot) {
+          forceElementTransparent(el.shadowRoot);
+          count++;
+        }
+      }
+    } catch (_) { /* shadow DOM access denied */ }
   }
 
   /* ── background-fix: keep site containers transparent ── */
